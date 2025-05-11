@@ -1,1 +1,1 @@
-worker: java $JAVA_OPTS -jar target/metta-bot-1.0-SNAPSHOT.jar
+web: java -jar target/metta-bot-1.0-SNAPSHOT.jar
