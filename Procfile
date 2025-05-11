@@ -1,1 +1,1 @@
-web: java $JAVA_OPTS -Dserver.port=$PORT -jar target/metta-bot-1.0-SNAPSHOT.jar
+worker: java -Dserver.port=$PORT $JAVA_OPTS -jar target/metta-bot-1.0-SNAPSHOT.jar
