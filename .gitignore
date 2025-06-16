@@ -36,5 +36,5 @@ build/
 
 ### Mac OS ###
 .DS_Store
-/src/main/resources/app.properties
+/src/main/resources/application.properties
 /.idea/
