@@ -22,12 +22,15 @@ import java.util.*;
 public class TelegramBot extends TelegramLongPollingBot {
 
     private final String botUsername;
+    private static final long LIMIT_FOR_REMINDER_IN_HOURS = 24;
+    private static final long LIMIT_FOR_BAN_IN_HOURS = 48;
+
     private final static Map<Pair<User, Long>, LocalDateTime> newUserJoinedTimeMap = new HashMap<>();
     private final static Set<Pair<User, Long>> newUserRemindedSet = new HashSet<>();
 
     private final static String welcomeMessage = "Welcome @{0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀\uFE0F\n" +
             "\n" +
-            "As we are a community of people that values real connections we'd love to learn three things from you upon joining: \n" +
+            "As we are a community of people that values real connections we would love to learn three things from you upon joining: \n" +
             "1) WHO brought you here? \n" +
             "2) WHAT about our community resonates with you?\n" +
             "3) HOW are you planning on contributing?\n" +
@@ -40,7 +43,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final static String reminderMessage = "Hi {0}," +
             "\n" +
             "You did not answer the questions so far. \n" +
-            "Please reply to the message in the group chat, in which you have been mentioned. \n" +
+            "Please answer them in the group chat. \n" +
             "You have 24 hours left. After that, you will be removed from the group. \n" +
             "\n" +
             "With ❤\uFE0F, \n" +
@@ -75,23 +78,22 @@ public class TelegramBot extends TelegramLongPollingBot {
         return botUsername;
     }
 
-    // Alle 7 min
+    // Every 7 min
     @Scheduled(fixedRate = 1000 * 60 * 7)
     public void removeUserIfNotAnswered() {
         Set<Pair<User, Long>> bannedUserChatPair = new HashSet<>();
         newUserJoinedTimeMap.forEach((userChatPair, userJoinedTime) -> {
             User user = userChatPair.getLeft();
-            // TODO Alex umbauen
-            if (userJoinedTime.isBefore(LocalDateTime.now().minusHours(2))) {
+            if (userJoinedTime.isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_BAN_IN_HOURS))) {
                 banUser(userChatPair.getRight(), user);
                 bannedUserChatPair.add(userChatPair);
-                // TODO Alex umbauen
-            } else if (userJoinedTime.isBefore(LocalDateTime.now().minusHours(1)) && !newUserRemindedSet.contains(userChatPair)) {
+            } else if (userJoinedTime.isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !newUserRemindedSet.contains(userChatPair)) {
                 sendText(user.getId(), composeReminderMessage(user.getFirstName()));
                 newUserRemindedSet.add(userChatPair);
             }
         });
-        bannedUserChatPair.forEach(bannedUserChatPair::remove);
+        newUserJoinedTimeMap.keySet().removeIf(bannedUserChatPair::contains);
+        bannedUserChatPair.removeIf(userLongPair -> !newUserJoinedTimeMap.containsKey(userLongPair));
     }
 
     private void sendText(Long who, String what) {
