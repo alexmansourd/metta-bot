@@ -1,6 +1,6 @@
 package ch.alexmansour.metta.entity;
 
-import lombok.NonNull;
+import org.springframework.lang.NonNull;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;

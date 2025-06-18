@@ -1,7 +1,6 @@
 package ch.alexmansour.metta.service;
 
 import ch.alexmansour.metta.entity.MettaUser;
-
 import java.util.Optional;
 
 public interface UserService {
