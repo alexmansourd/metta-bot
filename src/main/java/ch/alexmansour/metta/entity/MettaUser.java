@@ -1,0 +1,59 @@
+package ch.alexmansour.metta.entity;
+
+import lombok.NonNull;
+
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import java.time.LocalDateTime;
+
+@Entity
+public class MettaUser {
+    @Id
+    private Long userId;
+    private Long chatId;
+    private String firstName;
+    private String userName;
+    private LocalDateTime dateTimeJoined;
+    private Boolean hasBeenReminded;
+
+    public MettaUser() {
+
+    }
+
+    public MettaUser(@NonNull Long id, @NonNull Long chatId, @NonNull String firstName, String userName, LocalDateTime dateTimeJoined, Boolean hasBeenReminded) {
+        this.userId = id;
+        this.chatId = chatId;
+        this.firstName = firstName;
+        this.userName = userName;
+        this.dateTimeJoined = dateTimeJoined;
+        this.hasBeenReminded = hasBeenReminded;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public Long getChatId() {
+        return chatId;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public LocalDateTime getDateTimeJoined() {
+        return dateTimeJoined;
+    }
+
+    public Boolean hasBeenReminded() {
+        return hasBeenReminded;
+    }
+
+    public void setHasBeenReminded(Boolean hasBeenReminded) {
+        this.hasBeenReminded = hasBeenReminded;
+    }
+}
