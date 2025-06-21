@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
 import org.telegram.telegrambots.meta.api.methods.reactions.SetMessageReaction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -149,8 +150,15 @@ public class TelegramBot extends TelegramLongPollingBot {
         banChatMember.setUserId(user.getUserId());
         banChatMember.setUntilDate(epochMilliSecondsAtDate);
 
+        UnbanChatMember unbanChatMember = new UnbanChatMember();
+        unbanChatMember.setChatId(String.valueOf(chatId));
+        unbanChatMember.setUserId(user.getUserId());
+        // This parameter ensures that if the user wasn't banned, no action is taken.
+        unbanChatMember.setOnlyIfBanned(true);
+
         try {
             execute(banChatMember);
+            execute(unbanChatMember);
             LOGGER.info("User banned. username: {}", getUserNameOrFirstName(user));
             sendText(chatId, "metta-group", user.getFirstName() + " has bin removed from the group :(");
         } catch (TelegramApiException e) {
