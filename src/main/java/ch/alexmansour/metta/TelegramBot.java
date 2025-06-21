@@ -11,16 +11,19 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
+import org.telegram.telegrambots.meta.api.methods.reactions.SetMessageReaction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
+import org.telegram.telegrambots.meta.api.objects.reactions.ReactionTypeEmoji;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.text.MessageFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.List;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
@@ -51,12 +54,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             "With ❤️, \n" +
             "The Metta Explorers";
 
-    private final static String acceptedMessage = "Hi {0}," +
-            "\n" +
-            "Thanks for answering the questions and welcome to the group! \n" +
-            "With ❤️, \n" +
-            "The Metta Explorers";
-
     private final String botUsername;
 
     @Autowired
@@ -80,7 +77,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         Long userId = msg.getFrom().getId();
         if (!newUserList.isEmpty()) {
             for (User newUser : newUserList) {
-                MettaUser mettaUser = new MettaUser(newUser.getId(), chatID, newUser.getFirstName(), newUser.getUserName(), LocalDateTime.now(), false);
+                MettaUser mettaUser = new MettaUser(userId, chatID, newUser.getFirstName(), newUser.getUserName(), LocalDateTime.now(), false);
                 userService.saveUser(mettaUser);
                 LOGGER.info("New user joined group. username or firstname: {}", getUserNameOrFirstName(mettaUser));
                 sendText(chatID, getUserNameOrFirstName(mettaUser), composeWelcomeMessage(newUser.getFirstName()));
@@ -89,7 +86,21 @@ public class TelegramBot extends TelegramLongPollingBot {
             userService.deleteUser(leftUser.getId());
         } else {
             userService.fetchUser(userId).ifPresent(mettaUser -> {
-                sendText(userId, getUserNameOrFirstName(mettaUser), composeAcceptedMessage(msg.getFrom().getFirstName()));
+
+                SetMessageReaction setMessageReaction = new SetMessageReaction();
+                setMessageReaction.setChatId(String.valueOf(chatID));
+                setMessageReaction.setMessageId(update.getMessage().getMessageId());
+
+                ReactionTypeEmoji reactionTypeEmoji = new ReactionTypeEmoji();
+                reactionTypeEmoji.setEmoji("❤");
+                setMessageReaction.setReactionTypes(List.of(reactionTypeEmoji));
+
+                try {
+                    execute(setMessageReaction);
+                } catch (TelegramApiException e) {
+                    LOGGER.error(e.getMessage());
+                }
+
                 LOGGER.info("User answered the questions. username or firstname: {}", getUserNameOrFirstName(mettaUser));
                 userService.deleteUser(mettaUser.getUserId());
             });
@@ -101,15 +112,15 @@ public class TelegramBot extends TelegramLongPollingBot {
         return botUsername;
     }
 
-    // run every 7 min
-    @Scheduled(fixedRate = 1000)
+    // run every 10 min
+    @Scheduled(fixedRate = 1000 * 60 * 10)
     public void removeUserIfNotAnswered() {
-        for (MettaUser mettaUser :userService.fetchAll()) {
-            if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusSeconds(LIMIT_FOR_BAN_IN_HOURS))) {
+        for (MettaUser mettaUser : userService.fetchAll()) {
+            if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_BAN_IN_HOURS))) {
                 banUser(mettaUser.getChatId(), mettaUser);
                 userService.deleteUser(mettaUser.getUserId());
-            } else if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusSeconds(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()){
-                sendText(mettaUser.getUserId(), getUserNameOrFirstName(mettaUser), composeReminderMessage(mettaUser.getFirstName()));
+            } else if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()) {
+                sendText(mettaUser.getChatId(), getUserNameOrFirstName(mettaUser), composeReminderMessage(mettaUser.getFirstName()));
                 mettaUser.setHasBeenReminded(true);
                 userService.saveUser(mettaUser);
             }
@@ -130,15 +141,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void banUser(Long chatId, MettaUser user) {
+        LocalDate oneDayInTheFuture = LocalDate.now().plusDays(1);
+        int epochMilliSecondsAtDate = Math.toIntExact(oneDayInTheFuture.toEpochDay());
+
         BanChatMember banChatMember = new BanChatMember();
         banChatMember.setChatId(chatId);
         banChatMember.setUserId(user.getUserId());
+        banChatMember.setUntilDate(epochMilliSecondsAtDate);
 
         try {
             execute(banChatMember);
             LOGGER.info("User banned. username: {}", getUserNameOrFirstName(user));
             sendText(chatId, "metta-group", user.getFirstName() + " has bin removed from the group :(");
-            sendText(user.getUserId(), getUserNameOrFirstName(user), "Sadly you have been removed since you did not answer the questions. You can rejoin anytime :)");
         } catch (TelegramApiException e) {
             LOGGER.error(e.getMessage());
         }
@@ -154,9 +168,5 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private String composeReminderMessage(String firstName) {
         return MessageFormat.format(reminderMessage, firstName);
-    }
-
-    private String composeAcceptedMessage(String firstName) {
-        return MessageFormat.format(acceptedMessage, firstName);
     }
 }
