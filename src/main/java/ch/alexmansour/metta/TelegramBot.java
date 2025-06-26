@@ -41,7 +41,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             "2) WHAT about our community resonates with you?\n" +
             "3) HOW are you planning on contributing?\n" +
             "\n" +
-            "Don’t worry, we’re not looking for perfectly polished answers, but simply a little sign from you to get to know you. Please know that we’d love to read from you within 48 hours and otherwise will have to ask you to leave the group. \n" +
+            "Don’t worry, we’re not looking for perfectly polished answers, but simply a little sign from you to get to know you. Please know that we’d love to read from you within 24 hours and otherwise will have to ask you to leave the group. \n" +
             "\n" +
             "With ❤️, \n" +
             "The Metta Explorers";
