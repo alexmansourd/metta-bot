@@ -24,14 +24,15 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TelegramBot.class);
-    private static final long LIMIT_FOR_REMINDER_IN_HOURS = 24;
-    private static final long LIMIT_FOR_BAN_IN_HOURS = 48;
+    private static final long LIMIT_FOR_REMINDER_IN_HOURS = 12;
+    private static final long USER_ID_OF_LUC = 982237762;
 
     private final static String welcomeMessage = "Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️\n" +
             "\n" +
@@ -45,15 +46,12 @@ public class TelegramBot extends TelegramLongPollingBot {
             "With ❤️, \n" +
             "The Metta Explorers";
 
-    private final static String reminderMessage = "Hi {0}," +
+    private final static String reminderMessageUserPart = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
+    private final static String reminderMessageReminderPart = "Hello {0}," +
             "\n" +
-            "You did not answer the questions so far. \n" +
-            "Please answer them in the group chat. \n" +
-            "You have 24 hours left. After that, you will be removed from the group. \n" +
-            "If you have any questions or need advice, contact @hotzpott. \n" +
-            "\n" +
-            "With ❤️, \n" +
-            "The Metta Explorers";
+            "Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We'd really like to keep this a community where people know each other. \n" +
+            "Normally we give the people one day time for it after entering the group, do you think you'd manage within the next day? \n" +
+            "Wishing you a great week! Best, Luc";
 
     private final String botUsername;
 
@@ -81,7 +79,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 MettaUser mettaUser = new MettaUser(userId, chatID, newUser.getFirstName(), newUser.getUserName(), LocalDateTime.now(), false);
                 userService.saveUser(mettaUser);
                 LOGGER.info("New user joined group. username or firstname: {}", getUserNameOrFirstName(mettaUser));
-                sendText(chatID, getUserNameOrFirstName(mettaUser), composeWelcomeMessage(newUser.getFirstName()));
+                sendText(chatID, getUserNameOrFirstName(mettaUser), composeWelcomeMessage(mettaUser));
             }
         } else if (leftUser != null) {
             userService.deleteUser(leftUser.getId());
@@ -113,15 +111,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         return botUsername;
     }
 
-    // run every 10 min
-    @Scheduled(fixedRate = 1000 * 60 * 10)
+    // run every min
+    @Scheduled(fixedRate = 1000 * 60)
     public void removeUserIfNotAnswered() {
         for (MettaUser mettaUser : userService.fetchAll()) {
-            if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_BAN_IN_HOURS))) {
-                banUser(mettaUser.getChatId(), mettaUser);
-                userService.deleteUser(mettaUser.getUserId());
-            } else if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()) {
-                sendText(mettaUser.getChatId(), getUserNameOrFirstName(mettaUser), composeReminderMessage(mettaUser.getFirstName()));
+            if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()) {
+                // Text an Luc
+                sendText(USER_ID_OF_LUC, getUserNameOrFirstName(mettaUser), composeReminderMessageUser(mettaUser));
+                sendText(USER_ID_OF_LUC, getUserNameOrFirstName(mettaUser), composeReminderMessageReminder(mettaUser));
                 mettaUser.setHasBeenReminded(true);
                 userService.saveUser(mettaUser);
             }
@@ -141,6 +138,10 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Is not used at the moment
+     */
+    @Deprecated(forRemoval = true)
     private void banUser(Long chatId, MettaUser user) {
         LocalDate oneDayInTheFuture = LocalDate.now().plusDays(1);
         int epochMilliSecondsAtDate = Math.toIntExact(oneDayInTheFuture.toEpochDay());
@@ -167,14 +168,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private String getUserNameOrFirstName(MettaUser user) {
-        return user.getUserName() != null ? user.getUserName() : user.getFirstName();
+        return user.getUserName() != null ? "@" + user.getUserName() : user.getFirstName();
     }
 
-    private String composeWelcomeMessage(String username) {
-        return MessageFormat.format(welcomeMessage, username);
+    private String composeWelcomeMessage(MettaUser mettaUser) {
+        return MessageFormat.format(welcomeMessage, getUserNameOrFirstName(mettaUser));
     }
 
-    private String composeReminderMessage(String firstName) {
-        return MessageFormat.format(reminderMessage, firstName);
+    private String composeReminderMessageUser(MettaUser mettaUser) {
+        return MessageFormat.format(reminderMessageUserPart, getUserNameOrFirstName(mettaUser), mettaUser.getDateTimeJoined().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")));
+    }
+
+    private String composeReminderMessageReminder(MettaUser mettaUser) {
+        return MessageFormat.format(reminderMessageReminderPart, mettaUser.getFirstName());
     }
 }
