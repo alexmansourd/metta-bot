@@ -32,7 +32,6 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TelegramBot.class);
     private static final long LIMIT_FOR_REMINDER_IN_HOURS = 12;
-    private static final long USER_ID_OF_LUC = 982237762;
 
     private final static String welcomeMessage = "Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️\n" +
             "\n" +
@@ -49,18 +48,22 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final static String reminderMessageUserPart = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
     private final static String reminderMessageReminderPart = "Hello {0}," +
             "\n" +
-            "Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We'd really like to keep this a community where people know each other. \n" +
-            "Normally we give the people one day time for it after entering the group, do you think you'd manage within the next day? \n" +
+            "Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We’d really like to keep this a community where people know each other. \n" +
+            "Normally we give the people one day time for it after entering the group, do you think you’d manage within the next day? \n" +
             "Wishing you a great week! Best, Luc";
 
     private final String botUsername;
+    private final long userIdLuc;
+
 
     @Autowired
     private UserService userService;
 
     private TelegramBot(@Value("${telegram.bot.token}") String botToken,
-                        @Value("${telegram.bot.username}") String botUsername) throws TelegramApiException {
+                        @Value("${telegram.bot.username}") String botUsername,
+                        @Value("${telegram.bot.userIdLuc}") long userIdLuc) throws TelegramApiException {
         super(botToken);
+        this.userIdLuc = userIdLuc;
         this.botUsername = botUsername;
         // Register and start the bot
         TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
@@ -117,8 +120,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         for (MettaUser mettaUser : userService.fetchAll()) {
             if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()) {
                 // Text an Luc
-                sendText(USER_ID_OF_LUC, getUserNameOrFirstName(mettaUser), composeReminderMessageUser(mettaUser));
-                sendText(USER_ID_OF_LUC, getUserNameOrFirstName(mettaUser), composeReminderMessageReminder(mettaUser));
+                sendText(userIdLuc, getUserNameOrFirstName(mettaUser), composeReminderMessageUser(mettaUser));
+                sendText(userIdLuc, getUserNameOrFirstName(mettaUser), composeReminderMessageReminder(mettaUser));
                 mettaUser.setHasBeenReminded(true);
                 userService.saveUser(mettaUser);
             }
