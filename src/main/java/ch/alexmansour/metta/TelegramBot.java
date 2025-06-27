@@ -73,6 +73,9 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         Message msg = update.getMessage();
+        if (msg == null) {
+            return;
+        }
         List<User> newUserList = msg.getNewChatMembers();
         User leftUser = msg.getLeftChatMember();
         Long chatID = msg.getChat().getId();
