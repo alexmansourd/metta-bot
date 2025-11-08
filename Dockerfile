@@ -20,7 +20,7 @@ RUN mvn package -DskipTests -B
 
 # Stage 2: Create the runtime image
 # Use a slim OpenJDK 11 JRE image for a smaller final image size
-FROM openjdk:11-jre-slim
+FROM openjdk:11.0.11-jre-slim
 
 # Set the working directory in the container
 WORKDIR /app
