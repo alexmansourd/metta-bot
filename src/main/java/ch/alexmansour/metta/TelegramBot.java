@@ -55,7 +55,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final String botUsername;
     private final long userIdLuc;
 
-
     @Autowired
     private UserService userService;
 
@@ -80,18 +79,25 @@ public class TelegramBot extends TelegramLongPollingBot {
         User leftUser = msg.getLeftChatMember();
         Long chatID = msg.getChat().getId();
         Long userId = msg.getFrom().getId();
-        if (!newUserList.isEmpty()) {
+        if (newUserList != null && !newUserList.isEmpty()) {
             for (User newUser : newUserList) {
-                MettaUser mettaUser = new MettaUser(userId, chatID, newUser.getFirstName(), newUser.getUserName(), LocalDateTime.now(), false);
+                MettaUser mettaUser = new MettaUser(
+                        newUser.getId(), // use the joined user's id
+                        chatID,
+                        newUser.getFirstName(),
+                        newUser.getUserName(),
+                        LocalDateTime.now(),
+                        false
+                );
                 userService.saveUser(mettaUser);
                 LOGGER.info("New user joined group. username or firstname: {}", getUserNameOrFirstName(mettaUser));
                 sendText(chatID, getUserNameOrFirstName(mettaUser), composeWelcomeMessage(mettaUser));
             }
         } else if (leftUser != null) {
+            LOGGER.info("User left group. firstname: {}", leftUser.getFirstName());
             userService.deleteUser(leftUser.getId());
         } else {
             userService.fetchUser(userId).ifPresent(mettaUser -> {
-
                 SetMessageReaction setMessageReaction = new SetMessageReaction();
                 setMessageReaction.setChatId(String.valueOf(chatID));
                 setMessageReaction.setMessageId(update.getMessage().getMessageId());
@@ -119,7 +125,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     // run every min
     @Scheduled(fixedRate = 1000 * 60)
-    public void removeUserIfNotAnswered() {
+    public void remindUser() {
         for (MettaUser mettaUser : userService.fetchAll()) {
             if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()) {
                 // Text an Luc
@@ -127,8 +133,22 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendText(userIdLuc, getUserNameOrFirstName(mettaUser), composeReminderMessageReminder(mettaUser));
                 mettaUser.setHasBeenReminded(true);
                 userService.saveUser(mettaUser);
+                LOGGER.info("Sent reminder for user: {}", getUserNameOrFirstName(mettaUser));
             }
         }
+    }
+
+    // run every day
+    @Scheduled(fixedRate = 1000 * 60 * 60 * 24)
+    public void houseKeeping() {
+        LOGGER.info("Housekeeping started");
+        for (MettaUser mettaUser : userService.fetchAll()) {
+            if (mettaUser.hasBeenReminded() && mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusDays(2))) {
+                userService.deleteUser(mettaUser.getUserId());
+                LOGGER.info("Housekeeping for user: {}", getUserNameOrFirstName(mettaUser));
+            }
+        }
+        LOGGER.info("Housekeeping finished");
     }
 
     private void sendText(Long who, String username, String what) {
@@ -138,7 +158,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 .build();
         try {
             execute(sm);
-            LOGGER.info("Sent text. {} to {}", what, username);
+            LOGGER.info("Sent text. to {}", username);
         } catch (TelegramApiException e) {
             LOGGER.error(e.getMessage());
         }
