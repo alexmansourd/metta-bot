@@ -26,12 +26,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TelegramBot.class);
     private static final long LIMIT_FOR_REMINDER_IN_HOURS = 12;
+    private static final String STATUS_REQUESTED = "status";
 
     private final static String welcomeMessage = "Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️\n" +
             "\n" +
@@ -54,15 +56,18 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     private final String botUsername;
     private final long userIdLuc;
+    private final long userIdAlex;
 
     @Autowired
     private UserService userService;
 
-    private TelegramBot(@Value("${telegram.bot.token}") String botToken,
-                        @Value("${telegram.bot.username}") String botUsername,
-                        @Value("${telegram.bot.userIdLuc}") long userIdLuc) throws TelegramApiException {
+    public TelegramBot(@Value("${telegram.bot.token}") String botToken,
+                       @Value("${telegram.bot.username}") String botUsername,
+                       @Value("${telegram.bot.userIdLuc}") long userIdLuc,
+                       @Value("${telegram.bot.userIdAlex}") long userIdAlex) throws TelegramApiException {
         super(botToken);
         this.userIdLuc = userIdLuc;
+        this.userIdAlex = userIdAlex;
         this.botUsername = botUsername;
         // Register and start the bot
         TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
@@ -79,6 +84,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         User leftUser = msg.getLeftChatMember();
         Long chatID = msg.getChat().getId();
         Long userId = msg.getFrom().getId();
+
         if (newUserList != null && !newUserList.isEmpty()) {
             for (User newUser : newUserList) {
                 MettaUser mettaUser = new MettaUser(
@@ -97,25 +103,54 @@ public class TelegramBot extends TelegramLongPollingBot {
             LOGGER.info("User left group. firstname: {}", leftUser.getFirstName());
             userService.deleteUser(leftUser.getId());
         } else {
-            userService.fetchUser(userId).ifPresent(mettaUser -> {
-                SetMessageReaction setMessageReaction = new SetMessageReaction();
-                setMessageReaction.setChatId(String.valueOf(chatID));
-                setMessageReaction.setMessageId(update.getMessage().getMessageId());
+            if (statusUpdateRequested(msg, userId)) {
+                LOGGER.info("Status update requested by: {}", getUserNameOrFirstName(msg.getFrom()));
+                sendText(userId, getUserNameOrFirstName(msg.getFrom()), composeStatusMessage());
+            } else {
+                userService.fetchUser(userId).ifPresent(mettaUser -> {
+                    SetMessageReaction setMessageReaction = new SetMessageReaction();
+                    setMessageReaction.setChatId(String.valueOf(chatID));
+                    setMessageReaction.setMessageId(update.getMessage().getMessageId());
 
-                ReactionTypeEmoji reactionTypeEmoji = new ReactionTypeEmoji();
-                reactionTypeEmoji.setEmoji("❤");
-                setMessageReaction.setReactionTypes(List.of(reactionTypeEmoji));
+                    ReactionTypeEmoji reactionTypeEmoji = new ReactionTypeEmoji();
+                    reactionTypeEmoji.setEmoji("❤");
+                    setMessageReaction.setReactionTypes(List.of(reactionTypeEmoji));
 
-                try {
-                    execute(setMessageReaction);
-                } catch (TelegramApiException e) {
-                    LOGGER.error(e.getMessage());
-                }
+                    try {
+                        execute(setMessageReaction);
+                    } catch (TelegramApiException e) {
+                        LOGGER.error("Failed to set reaction", e);
+                    }
 
-                LOGGER.info("User answered the questions. username or firstname: {}", getUserNameOrFirstName(mettaUser));
-                userService.deleteUser(mettaUser.getUserId());
-            });
+                    LOGGER.info("User answered the questions. username or firstname: {}", getUserNameOrFirstName(mettaUser));
+                    userService.deleteUser(mettaUser.getUserId());
+                });
+            }
         }
+    }
+
+    private String composeStatusMessage() {
+        AtomicBoolean hasAtLeastOneUser = new AtomicBoolean(false);
+        StringBuilder sb = new StringBuilder();
+        userService.fetchAll().forEach(mettaUser -> {
+            if (mettaUser.hasBeenReminded()) {
+                hasAtLeastOneUser.set(true);
+                sb.append("reminded on ")
+                        .append(getFormatedDateJoined(mettaUser))
+                        .append(" ")
+                        .append(getUserNameOrFirstName(mettaUser));
+                sb.append("\n");
+            }
+        });
+        if (!hasAtLeastOneUser.get()) {
+            sb.append("No open reminders");
+        }
+        return sb.toString();
+    }
+
+    private boolean statusUpdateRequested(Message msg, Long userId) {
+        boolean statusRequested = STATUS_REQUESTED.equalsIgnoreCase(msg.getText());
+        return (userIdLuc == userId || userIdAlex == userId) && statusRequested;
     }
 
     @Override
@@ -160,7 +195,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             execute(sm);
             LOGGER.info("Sent text. to {}", username);
         } catch (TelegramApiException e) {
-            LOGGER.error(e.getMessage());
+            LOGGER.error("Failed to send message to {}", username, e);
         }
     }
 
@@ -189,7 +224,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             LOGGER.info("User banned. username: {}", getUserNameOrFirstName(user));
             sendText(chatId, "metta-group", user.getFirstName() + " has bin removed from the group :(");
         } catch (TelegramApiException e) {
-            LOGGER.error(e.getMessage());
+            LOGGER.error("Failed to ban/unban user {}", getUserNameOrFirstName(user), e);
         }
     }
 
@@ -202,10 +237,21 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private String composeReminderMessageUser(MettaUser mettaUser) {
-        return MessageFormat.format(reminderMessageUserPart, getUserNameOrFirstName(mettaUser), mettaUser.getDateTimeJoined().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")));
+        return MessageFormat.format(reminderMessageUserPart, getUserNameOrFirstName(mettaUser), getFormatedDateJoined(mettaUser));
+    }
+
+    private static String getFormatedDateJoined(MettaUser mettaUser) {
+        return mettaUser.getDateTimeJoined().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
     }
 
     private String composeReminderMessageReminder(MettaUser mettaUser) {
         return MessageFormat.format(reminderMessageReminderPart, mettaUser.getFirstName());
+    }
+
+    // Utility to format a Telegram User's display name for logging/messages
+    private String getUserNameOrFirstName(User user) {
+        if (user == null) return "unknown";
+        String username = user.getUserName();
+        return username != null ? "@" + username : user.getFirstName();
     }
 }
