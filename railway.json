@@ -7,7 +7,7 @@
   "deploy": {
     "runtime": "V2",
     "numReplicas": 1,
-    "startCommand": "java -Dserver.port=$PORT ${JAVA_OPTS:-} -jar target/metta-bot-1.0-SNAPSHOT.jar",
+    "startCommand": "java -Dserver.port=$PORT -jar target/metta-bot-1.0-SNAPSHOT.jar",
     "sleepApplication": false,
     "useLegacyStacker": false,
     "multiRegionConfig": {
