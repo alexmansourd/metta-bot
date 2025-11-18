@@ -33,10 +33,6 @@ public class MettaUser {
         return userId;
     }
 
-    public Long getChatId() {
-        return chatId;
-    }
-
     public String getFirstName() {
         return firstName;
     }
