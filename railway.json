@@ -7,7 +7,7 @@
   "deploy": {
     "runtime": "V2",
     "numReplicas": 1,
-    "startCommand": "java -jar app.jar",
+    "startCommand": "java -XX:+UseG1GC -Xms265m -Xmx512m -jar app.jar",
     "sleepApplication": false,
     "useLegacyStacker": false,
     "multiRegionConfig": {
