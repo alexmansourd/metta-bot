@@ -158,8 +158,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         return botUsername;
     }
 
-    // run every min
-    @Scheduled(fixedRate = 1000 * 60)
+    // run every three min
+    @Scheduled(fixedRate = 1000 * 60 * 3)
     public void remindUser() {
         for (MettaUser mettaUser : userService.fetchAll()) {
             if (mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusHours(LIMIT_FOR_REMINDER_IN_HOURS)) && !mettaUser.hasBeenReminded()) {
@@ -178,7 +178,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void houseKeeping() {
         LOGGER.info("Housekeeping started");
         for (MettaUser mettaUser : userService.fetchAll()) {
-            if (mettaUser.hasBeenReminded() && mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusDays(2))) {
+            if (mettaUser.hasBeenReminded() && mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusDays(5))) {
                 userService.deleteUser(mettaUser.getUserId());
                 LOGGER.info("Housekeeping for user: {}", getUserNameOrFirstName(mettaUser));
             }
