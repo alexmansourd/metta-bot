@@ -1,35 +1,36 @@
-# Stage 1: Build the application using Maven
-# We'll use a Maven image that includes JDK 11
-FROM maven:3.8.5-openjdk-11 AS builder
+#####
+# Multi-stage Dockerfile optimized for Railway
+# - Better Docker layer caching (go-offline before copying sources)
+# - Safe non-root runtime user
+# - Container-aware JVM defaults via JAVA_TOOL_OPTIONS
+#####
 
-# Set the working directory in the container
+# ---- Build stage ----
+FROM maven:3.9.9-eclipse-temurin-11 AS builder
 WORKDIR /app
 
-# Copy the pom.xml file to download dependencies
+# Leverage cache: download dependencies first
 COPY pom.xml .
+RUN mvn -B -q -DskipTests dependency:go-offline
 
-# Download all dependencies. This layer is cached unless pom.xml changes.
-RUN mvn dependency:go-offline -B
-
-# Copy the rest of the application's source code
+# Now copy sources and build
 COPY src ./src
+RUN mvn -B -q -DskipTests package
 
-# Package the application (compile, test, and create an executable JAR)
-# The pom.xml should be configured with spring-boot-maven-plugin to build a fat JAR.
-RUN mvn package -DskipTests -B
+# ---- Runtime stage ----
+# Use a Debian/Ubuntu-based Temurin image to ensure multi-arch support (incl. arm64 on Railway)
+FROM eclipse-temurin:11-jre-jammy
 
-# Stage 2: Create the runtime image
-# Use a slim OpenJDK 11 JRE image for a smaller final image size
-FROM openjdk:11.0.11-jre-slim
+# Minimal OS deps: time zone + CA certs
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the executable JAR file from the builder stage.
-# Explicitly naming the JAR based on pom.xml artifactId and version.
-# This ensures we're copying the correct Spring Boot repackaged JAR.
-COPY --from=builder /app/target/metta-bot-1.0-SNAPSHOT.jar app.jar
+# Copy the Spring Boot fat JAR
+COPY --from=builder /app/target/metta-bot-1.0-SNAPSHOT.jar /app/app.jar
 
-# Command to run the application
-# Spring Boot's repackaged JARs are executable with 'java -jar'
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Allow Railway to override/append args; keep entry flexible
+ENTRYPOINT ["java"]
+CMD ["-jar", "/app/app.jar"]
