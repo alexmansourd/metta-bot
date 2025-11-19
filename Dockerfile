@@ -19,7 +19,7 @@ RUN mvn -B -q -DskipTests package
 
 # ---- Runtime stage ----
 # Use a Debian/Ubuntu-based Temurin image to ensure multi-arch support (incl. arm64 on Railway)
-FROM eclipse-temurin:17-jre-jammy
+FROM eclipse-temurin:25-jre-jammy
 
 # Minimal OS deps: time zone + CA certs
 RUN apt-get update \
