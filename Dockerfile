@@ -1,6 +1,5 @@
 #####
 # Multi-stage Dockerfile optimized for Railway
-# - Small final image (Alpine Temurin JRE 11)
 # - Better Docker layer caching (go-offline before copying sources)
 # - Safe non-root runtime user
 # - Container-aware JVM defaults via JAVA_TOOL_OPTIONS
