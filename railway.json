@@ -7,7 +7,7 @@
   "deploy": {
     "runtime": "V2",
     "numReplicas": 1,
-    "startCommand": "java -XX:+UseG1GC -Xms256m -Xmx384m -jar app.jar",
+    "startCommand": "java -XX:+UseSerialGC -Xms128m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:ReservedCodeCacheSize=48m -XX:MaxDirectMemorySize=16m -Xss256k -Dfile.encoding=UTF-8 -jar app.jar",
     "sleepApplication": false,
     "useLegacyStacker": false,
     "multiRegionConfig": {

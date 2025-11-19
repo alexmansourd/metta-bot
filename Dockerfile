@@ -6,7 +6,7 @@
 #####
 
 # ---- Build stage ----
-FROM maven:3.9.9-eclipse-temurin-11 AS builder
+FROM maven:3.9.9-eclipse-temurin-17 AS builder
 WORKDIR /app
 
 # Leverage cache: download dependencies first
@@ -19,7 +19,7 @@ RUN mvn -B -q -DskipTests package
 
 # ---- Runtime stage ----
 # Use a Debian/Ubuntu-based Temurin image to ensure multi-arch support (incl. arm64 on Railway)
-FROM eclipse-temurin:11-jre-jammy
+FROM eclipse-temurin:17-jre-jammy
 
 # Minimal OS deps: time zone + CA certs
 RUN apt-get update \
