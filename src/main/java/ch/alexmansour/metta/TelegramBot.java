@@ -29,30 +29,51 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
+/**
+ * Telegram long-polling bot for the Metta community.
+ * <p>
+ * Responsibilities:
+ * <ul>
+ *     <li>Welcomes new users that join the group and persists them for follow-up reminders.</li>
+ *     <li>Removes users from the persistence store when they leave the group or after workflows complete.</li>
+ *     <li>Allows admins to request a short status report by sending the {@code status} command in a private chat.</li>
+ *     <li>Periodically reminds admins about users who haven't introduced themselves yet.</li>
+ *     <li>Performs daily housekeeping to clear outdated reminder entries.</li>
+ * </ul>
+ * Configuration is injected via Spring {@link Value} properties:
+ * <ul>
+ *     <li>{@code telegram.bot.token} – Bot token.</li>
+ *     <li>{@code telegram.bot.username} – Public username of the bot.</li>
+ *     <li>{@code telegram.bot.userIdLuc} – Telegram user ID of an admin (Luc).</li>
+ *     <li>{@code telegram.bot.userIdAlex} – Telegram user ID of an admin (Alex).</li>
+ * </ul>
+ * The bot registers itself with {@link TelegramBotsApi} on construction and starts receiving updates.
+ */
 public class TelegramBot extends TelegramLongPollingBot {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TelegramBot.class);
     private static final long LIMIT_FOR_REMINDER_IN_HOURS = 12;
-    private static final String STATUS_REQUESTED = "status";
+    private static final int DAYS_FOR_REMINDER_CUTOFF = 5;
+    private static final String STATUS_REQUESTED_CMD = "status";
+    private final static String WELCOME_MESSAGE = """
+            Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️
+            
+            As we are a community of people that values real connections we would love to learn three things from you upon joining: 
+            1) WHO brought you here? 
+            2) WHAT about our community resonates with you?
+            3) HOW are you planning on contributing?
+            
+            Don’t worry, we’re not looking for perfectly polished answers, but simply a little sign from you to get to know you. Please know that we’d love to read from you within 24 hours and otherwise will have to ask you to leave the group. 
+            
+            With ❤️, 
+            The Metta Explorers""";
 
-    private final static String welcomeMessage = "Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️\n" +
-            "\n" +
-            "As we are a community of people that values real connections we would love to learn three things from you upon joining: \n" +
-            "1) WHO brought you here? \n" +
-            "2) WHAT about our community resonates with you?\n" +
-            "3) HOW are you planning on contributing?\n" +
-            "\n" +
-            "Don’t worry, we’re not looking for perfectly polished answers, but simply a little sign from you to get to know you. Please know that we’d love to read from you within 24 hours and otherwise will have to ask you to leave the group. \n" +
-            "\n" +
-            "With ❤️, \n" +
-            "The Metta Explorers";
-
-    private final static String reminderMessageUserPart = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
-    private final static String reminderMessageReminderPart = "Hello {0}," +
-            "\n" +
-            "Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We’d really like to keep this a community where people know each other. \n" +
-            "Normally we give the people one day time for it after entering the group, do you think you’d manage within the next day? \n" +
-            "Wishing you a great week! Best, Luc";
+    private final static String REMINDER_MESSAGE_USER_PART = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
+    private final static String REMINDER_MESSAGE_REMINDER_PART = """
+            Hello {0},
+            Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We’d really like to keep this a community where people know each other. 
+            Normally we give the people one day time for it after entering the group, do you think you’d manage within the next day? 
+            Wishing you a great week! Best, Luc""";
 
     private final String botUsername;
     private final long userIdLuc;
@@ -61,6 +82,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Autowired
     private UserService userService;
 
+    /**
+     * Creates and registers the Telegram bot instance.
+     * <p>
+     * The constructor invokes {@link TelegramBotsApi#registerBot}
+     * which starts the long-polling session immediately.
+     *
+     * @param botToken    the bot token obtained from BotFather (Spring property {@code telegram.bot.token})
+     * @param botUsername the bot's public username (Spring property {@code telegram.bot.username})
+     * @param userIdLuc   Telegram user ID for the admin Luc (Spring property {@code telegram.bot.userIdLuc})
+     * @param userIdAlex  Telegram user ID for the admin Alex (Spring property {@code telegram.bot.userIdAlex})
+     * @throws TelegramApiException if the bot fails to register with Telegram API
+     */
     public TelegramBot(@Value("${telegram.bot.token}") String botToken,
                        @Value("${telegram.bot.username}") String botUsername,
                        @Value("${telegram.bot.userIdLuc}") long userIdLuc,
@@ -74,6 +107,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         botsApi.registerBot(this);
     }
 
+    /**
+     * Handles incoming updates from Telegram.
+     * <p>
+     * Behavior overview:
+     * <ul>
+     *     <li>If new chat members joined, they are persisted and greeted with a welcome message.</li>
+     *     <li>If a user left the chat, they are removed from persistence.</li>
+     *     <li>If the sender is an admin and sent the {@code status} command, a status summary is DM'd to them.</li>
+     *     <li>Otherwise, if the sender exists in persistence, the message is considered an introduction:
+     *     the bot reacts with a heart and removes the user from persistence.</li>
+     * </ul>
+     *
+     * @param update the incoming update payload
+     */
     @Override
     public void onUpdateReceived(Update update) {
         Message msg = update.getMessage();
@@ -89,7 +136,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             for (User newUser : newUserList) {
                 MettaUser mettaUser = new MettaUser(
                         newUser.getId(), // use the joined user's id
-                        chatID,
                         newUser.getFirstName(),
                         newUser.getUserName(),
                         LocalDateTime.now(),
@@ -129,6 +175,11 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Builds a human-readable status message listing users that have already been reminded.
+     *
+     * @return a status report or {@code "No open reminders"} if none exist
+     */
     private String composeStatusMessage() {
         AtomicBoolean hasAtLeastOneUser = new AtomicBoolean(false);
         StringBuilder sb = new StringBuilder();
@@ -148,17 +199,35 @@ public class TelegramBot extends TelegramLongPollingBot {
         return sb.toString();
     }
 
+    /**
+     * Determines whether a status update was requested by an allowed admin.
+     *
+     * @param msg    the received message (its text is checked for the {@code status} command)
+     * @param userId the Telegram user ID of the sender
+     * @return {@code true} if the message is the {@code status} command and the sender is an admin; otherwise {@code false}
+     */
     private boolean statusUpdateRequested(Message msg, Long userId) {
-        boolean statusRequested = STATUS_REQUESTED.equalsIgnoreCase(msg.getText());
+        boolean statusRequested = STATUS_REQUESTED_CMD.equalsIgnoreCase(msg.getText());
         return (userIdLuc == userId || userIdAlex == userId) && statusRequested;
     }
 
+    /**
+     * Returns the bot's public username.
+     *
+     * @return the configured bot username
+     */
     @Override
     public String getBotUsername() {
         return botUsername;
     }
 
-    // run every three min
+    /**
+     * Periodic task that reminds admins about users who haven't introduced themselves yet.
+     * <p>
+     * Schedule: every 3 minutes.
+     * A reminder is sent if a user has been in the group for longer than {@link #LIMIT_FOR_REMINDER_IN_HOURS}
+     * hours and has not been reminded before. The user entry is marked as reminded afterwards.
+     */
     @Scheduled(fixedRate = 1000 * 60 * 3)
     public void remindUser() {
         for (MettaUser mettaUser : userService.fetchAll()) {
@@ -173,19 +242,32 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    // run every day
+    /**
+     * Daily housekeeping task that cleans up outdated reminder entries.
+     * <p>
+     * Schedule: once every 24 hours.
+     * Removes users that were already reminded and joined earlier than
+     * {@link #DAYS_FOR_REMINDER_CUTOFF} days ago.
+     */
     @Scheduled(fixedRate = 1000 * 60 * 60 * 24)
     public void houseKeeping() {
         LOGGER.info("Housekeeping started");
         for (MettaUser mettaUser : userService.fetchAll()) {
-            if (mettaUser.hasBeenReminded() && mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusDays(5))) {
+            if (mettaUser.hasBeenReminded() && mettaUser.getDateTimeJoined().isBefore(LocalDateTime.now().minusDays(DAYS_FOR_REMINDER_CUTOFF))) {
                 userService.deleteUser(mettaUser.getUserId());
-                LOGGER.info("Housekeeping for user: {}", getUserNameOrFirstName(mettaUser));
+                LOGGER.info("Reminder deleted for user: {}", getUserNameOrFirstName(mettaUser));
             }
         }
         LOGGER.info("Housekeeping finished");
     }
 
+    /**
+     * Sends a plain text message to a chat/user.
+     *
+     * @param who      the target chat ID
+     * @param username the display name used for logging
+     * @param what     the text content to send
+     */
     private void sendText(Long who, String username, String what) {
         SendMessage sm = SendMessage.builder()
                 .chatId(who.toString()) //Who are we sending a message to
@@ -200,7 +282,12 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     /**
-     * Is not used at the moment
+     * Bans and immediately unbans a user to effectively kick them from the group.
+     * <p>
+     * Deprecated and not used at the moment.
+     *
+     * @param chatId the chat/group ID
+     * @param user   the user to remove
      */
     @Deprecated(forRemoval = true)
     private void banUser(Long chatId, MettaUser user) {
@@ -228,27 +315,62 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Formats a {@link MettaUser}'s display handle for messages/logging.
+     *
+     * @param user the stored user
+     * @return the user's {@code @username} if present; otherwise their first name
+     */
     private String getUserNameOrFirstName(MettaUser user) {
         return user.getUserName() != null ? "@" + user.getUserName() : user.getFirstName();
     }
 
+    /**
+     * Composes the welcome message for a newly joined user.
+     *
+     * @param mettaUser the new user
+     * @return the formatted welcome text
+     */
     private String composeWelcomeMessage(MettaUser mettaUser) {
-        return MessageFormat.format(welcomeMessage, getUserNameOrFirstName(mettaUser));
+        return MessageFormat.format(WELCOME_MESSAGE, getUserNameOrFirstName(mettaUser));
     }
 
+    /**
+     * Composes the admin-facing reminder line describing when a user joined.
+     *
+     * @param mettaUser the user being reminded about
+     * @return the formatted line for admins
+     */
     private String composeReminderMessageUser(MettaUser mettaUser) {
-        return MessageFormat.format(reminderMessageUserPart, getUserNameOrFirstName(mettaUser), getFormatedDateJoined(mettaUser));
+        return MessageFormat.format(REMINDER_MESSAGE_USER_PART, getUserNameOrFirstName(mettaUser), getFormatedDateJoined(mettaUser));
     }
 
+    /**
+     * Formats the user's join timestamp for human-readable output.
+     *
+     * @param mettaUser the user
+     * @return the join date formatted as {@code dd.MM.yyyy HH:mm}
+     */
     private static String getFormatedDateJoined(MettaUser mettaUser) {
         return mettaUser.getDateTimeJoined().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
     }
 
+    /**
+     * Composes the admin's suggested DM text to follow up with a user.
+     *
+     * @param mettaUser the user to contact
+     * @return the formatted DM suggestion text for admins
+     */
     private String composeReminderMessageReminder(MettaUser mettaUser) {
-        return MessageFormat.format(reminderMessageReminderPart, mettaUser.getFirstName());
+        return MessageFormat.format(REMINDER_MESSAGE_REMINDER_PART, mettaUser.getFirstName());
     }
 
-    // Utility to format a Telegram User's display name for logging/messages
+    /**
+     * Formats a Telegram {@link User}'s display handle for messages/logging.
+     *
+     * @param user the Telegram user (may be {@code null})
+     * @return the user's {@code @username} if present; otherwise their first name; or {@code "unknown"} if null
+     */
     private String getUserNameOrFirstName(User user) {
         if (user == null) return "unknown";
         String username = user.getUserName();
