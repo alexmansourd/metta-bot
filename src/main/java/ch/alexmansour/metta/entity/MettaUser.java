@@ -1,16 +1,15 @@
 package ch.alexmansour.metta.entity;
 
-import org.springframework.lang.NonNull;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import org.springframework.lang.NonNull;
+
 import java.time.LocalDateTime;
 
 @Entity
 public class MettaUser {
     @Id
     private Long userId;
-    private Long chatId;
     private String firstName;
     private String userName;
     private LocalDateTime dateTimeJoined;
@@ -20,9 +19,8 @@ public class MettaUser {
 
     }
 
-    public MettaUser(@NonNull Long id, @NonNull Long chatId, @NonNull String firstName, String userName, LocalDateTime dateTimeJoined, Boolean hasBeenReminded) {
+    public MettaUser(@NonNull Long id, @NonNull String firstName, String userName, LocalDateTime dateTimeJoined, Boolean hasBeenReminded) {
         this.userId = id;
-        this.chatId = chatId;
         this.firstName = firstName;
         this.userName = userName;
         this.dateTimeJoined = dateTimeJoined;
