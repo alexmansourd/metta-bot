@@ -206,7 +206,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param userId the Telegram user ID of the sender
      * @return {@code true} if the message is the {@code status} command and the sender is an admin; otherwise {@code false}
      */
-    private boolean statusUpdateRequested(Message msg, Long userId) {
+    boolean statusUpdateRequested(Message msg, Long userId) {
         boolean statusRequested = STATUS_REQUESTED_CMD.equalsIgnoreCase(msg.getText());
         return (userIdLuc == userId || userIdAlex == userId) && statusRequested;
     }
@@ -321,7 +321,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param user the stored user
      * @return the user's {@code @username} if present; otherwise their first name
      */
-    private String getUserNameOrFirstName(MettaUser user) {
+    String getUserNameOrFirstName(MettaUser user) {
         return user.getUserName() != null ? "@" + user.getUserName() : user.getFirstName();
     }
 
@@ -331,7 +331,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param mettaUser the new user
      * @return the formatted welcome text
      */
-    private String composeWelcomeMessage(MettaUser mettaUser) {
+    String composeWelcomeMessage(MettaUser mettaUser) {
         return MessageFormat.format(WELCOME_MESSAGE, getUserNameOrFirstName(mettaUser));
     }
 
@@ -341,7 +341,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param mettaUser the user being reminded about
      * @return the formatted line for admins
      */
-    private String composeReminderMessageUser(MettaUser mettaUser) {
+    String composeReminderMessageUser(MettaUser mettaUser) {
         return MessageFormat.format(REMINDER_MESSAGE_USER_PART, getUserNameOrFirstName(mettaUser), getFormatedDateJoined(mettaUser));
     }
 
@@ -351,7 +351,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param mettaUser the user
      * @return the join date formatted as {@code dd.MM.yyyy HH:mm}
      */
-    private static String getFormatedDateJoined(MettaUser mettaUser) {
+    static String getFormatedDateJoined(MettaUser mettaUser) {
         return mettaUser.getDateTimeJoined().format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"));
     }
 
@@ -361,7 +361,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param mettaUser the user to contact
      * @return the formatted DM suggestion text for admins
      */
-    private String composeReminderMessageReminder(MettaUser mettaUser) {
+    String composeReminderMessageReminder(MettaUser mettaUser) {
         return MessageFormat.format(REMINDER_MESSAGE_REMINDER_PART, mettaUser.getFirstName());
     }
 
@@ -371,7 +371,7 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param user the Telegram user (may be {@code null})
      * @return the user's {@code @username} if present; otherwise their first name; or {@code "unknown"} if null
      */
-    private String getUserNameOrFirstName(User user) {
+    String getUserNameOrFirstName(User user) {
         if (user == null) return "unknown";
         String username = user.getUserName();
         return username != null ? "@" + username : user.getFirstName();
