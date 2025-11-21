@@ -55,7 +55,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static final long LIMIT_FOR_REMINDER_IN_HOURS = 12;
     private static final int DAYS_FOR_REMINDER_CUTOFF = 5;
     private static final String STATUS_REQUESTED_CMD = "status";
-    private final static String WELCOME_MESSAGE = """
+    private static final String WELCOME_MESSAGE = """
             Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️
             
             As we are a community of people that values real connections we would love to learn three things from you upon joining: 
@@ -68,8 +68,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             With ❤️, 
             The Metta Explorers""";
 
-    private final static String REMINDER_MESSAGE_USER_PART = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
-    private final static String REMINDER_MESSAGE_REMINDER_PART = """
+    private static final String REMINDER_MESSAGE_USER_PART = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
+    private static final String REMINDER_MESSAGE_REMINDER_PART = """
             Hello {0},
             Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We’d really like to keep this a community where people know each other. 
             Normally we give the people one day time for it after entering the group, do you think you’d manage within the next day? 
@@ -78,9 +78,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final String botUsername;
     private final long userIdLuc;
     private final long userIdAlex;
-
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
 
     /**
      * Creates and registers the Telegram bot instance.
@@ -94,11 +92,14 @@ public class TelegramBot extends TelegramLongPollingBot {
      * @param userIdAlex  Telegram user ID for the admin Alex (Spring property {@code telegram.bot.userIdAlex})
      * @throws TelegramApiException if the bot fails to register with Telegram API
      */
+    @Autowired
     public TelegramBot(@Value("${telegram.bot.token}") String botToken,
                        @Value("${telegram.bot.username}") String botUsername,
                        @Value("${telegram.bot.userIdLuc}") long userIdLuc,
-                       @Value("${telegram.bot.userIdAlex}") long userIdAlex) throws TelegramApiException {
+                       @Value("${telegram.bot.userIdAlex}") long userIdAlex,
+                       UserService userService) throws TelegramApiException {
         super(botToken);
+        this.userService = userService;
         this.userIdLuc = userIdLuc;
         this.userIdAlex = userIdAlex;
         this.botUsername = botUsername;
