@@ -8,10 +8,10 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
 class UserServiceImplTest {
@@ -22,7 +22,7 @@ class UserServiceImplTest {
     @BeforeEach
     void setUp() throws Exception {
         userRepository = mock(UserRepository.class);
-        service = new UserServiceImpl();
+        service = new UserServiceImpl(userRepository);
 
         // Inject the mocked repository into the service (@Autowired field) without changing production code
         Field f = UserServiceImpl.class.getDeclaredField("userRepository");
