@@ -4,11 +4,11 @@ WORKDIR /app
 
 # Leverage cache: download dependencies first
 COPY pom.xml .
-RUN mvn -B -q -DskipTests dependency:go-offline
+RUN mvn -B dependency:go-offline
 
-# Now copy sources and build
+# Now copy sources and build with tests
 COPY src ./src
-RUN mvn -B -q -DskipTests package
+RUN mvn -B package
 
 # ---- Runtime stage ----
 FROM eclipse-temurin:25-jre-jammy
