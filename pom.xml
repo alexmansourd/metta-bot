@@ -33,6 +33,7 @@
             <artifactId>postgresql</artifactId>
         </dependency>
 
+        <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -52,6 +53,7 @@
         <java.version>17</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <start-class>ch.alexmansour.metta.Main</start-class>
+        <sonar.organization>alexmansour</sonar.organization>
     </properties>
 
     <build>
