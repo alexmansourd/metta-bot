@@ -48,4 +48,10 @@ class MettaUserTest {
         assertEquals(joined, u.getDateTimeJoined());
         assertNull(u.hasBeenReminded());
     }
+
+    @Test
+    void constructor_creation() {
+        MettaUser mettaUser = new MettaUser();
+        assertNotNull(mettaUser);
+    }
 }
