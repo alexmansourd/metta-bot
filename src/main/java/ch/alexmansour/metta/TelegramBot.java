@@ -10,8 +10,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.BanChatMember;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.UnbanChatMember;
 import org.telegram.telegrambots.meta.api.methods.reactions.SetMessageReaction;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
@@ -22,7 +20,6 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import java.text.MessageFormat;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -58,21 +55,21 @@ public class TelegramBot extends TelegramLongPollingBot {
     private static final String WELCOME_MESSAGE = """
             Welcome {0} \uD83E\uDDDA\uD83C\uDFFB\u200D♀️
             
-            As we are a community of people that values real connections we would love to learn three things from you upon joining: 
-            1) WHO brought you here? 
+            As we are a community of people that values real connections we would love to learn three things from you upon joining:
+            1) WHO brought you here?
             2) WHAT about our community resonates with you?
             3) HOW are you planning on contributing?
             
-            Don’t worry, we’re not looking for perfectly polished answers, but simply a little sign from you to get to know you. Please know that we’d love to read from you within 24 hours and otherwise will have to ask you to leave the group. 
+            Don’t worry, we’re not looking for perfectly polished answers, but simply a little sign from you to get to know you. Please know that we’d love to read from you within 24 hours and otherwise will have to ask you to leave the group.
             
-            With ❤️, 
+            With ❤️,
             The Metta Explorers""";
 
     private static final String REMINDER_MESSAGE_USER_PART = "Der User {0} ist am {1} in die Metta Explorers Gruppe eingeladen worden.";
     private static final String REMINDER_MESSAGE_REMINDER_PART = """
             Hello {0},
-            Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We’d really like to keep this a community where people know each other. 
-            Normally we give the people one day time for it after entering the group, do you think you’d manage within the next day? 
+            Welcome to the Metta Community! I wanted to kindly ask you to share the introduction in the chat, the questions that were sent by the bot could be of inspiration for it. We’d really like to keep this a community where people know each other.
+            Normally we give the people one day time for it after entering the group, do you think you’d manage within the next day?
             Wishing you a great week! Best, Luc""";
 
     private final String botUsername;
