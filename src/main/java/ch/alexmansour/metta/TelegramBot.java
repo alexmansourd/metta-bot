@@ -283,40 +283,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     /**
-     * Bans and immediately unbans a user to effectively kick them from the group.
-     * <p>
-     * Deprecated and not used at the moment.
-     *
-     * @param chatId the chat/group ID
-     * @param user   the user to remove
-     */
-    @Deprecated(forRemoval = true)
-    private void banUser(Long chatId, MettaUser user) {
-        LocalDate oneDayInTheFuture = LocalDate.now().plusDays(1);
-        int epochMilliSecondsAtDate = Math.toIntExact(oneDayInTheFuture.toEpochDay());
-
-        BanChatMember banChatMember = new BanChatMember();
-        banChatMember.setChatId(chatId);
-        banChatMember.setUserId(user.getUserId());
-        banChatMember.setUntilDate(epochMilliSecondsAtDate);
-
-        UnbanChatMember unbanChatMember = new UnbanChatMember();
-        unbanChatMember.setChatId(String.valueOf(chatId));
-        unbanChatMember.setUserId(user.getUserId());
-        // This parameter ensures that if the user wasn't banned, no action is taken.
-        unbanChatMember.setOnlyIfBanned(true);
-
-        try {
-            execute(banChatMember);
-            execute(unbanChatMember);
-            LOGGER.info("User banned. username: {}", getUserNameOrFirstName(user));
-            sendText(chatId, "metta-group", user.getFirstName() + " has bin removed from the group :(");
-        } catch (TelegramApiException e) {
-            LOGGER.error("Failed to ban/unban user {}", getUserNameOrFirstName(user), e);
-        }
-    }
-
-    /**
      * Formats a {@link MettaUser}'s display handle for messages/logging.
      *
      * @param user the stored user
